@@ -1,0 +1,11 @@
+[package]
+name = "wallpapersc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+env_logger = "0.11.8"
+eyre = "0.6.12"
+log = "0.4.29"
+smithay-client-toolkit = "0.20.0"
+wayland-client = "0.31.11"
