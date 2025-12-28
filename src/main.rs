@@ -130,6 +130,15 @@ impl OutputHandler for App {
         _qh: &QueueHandle<Self>,
         output: wayland_client::protocol::wl_output::WlOutput,
     ) {
+        match self.output_state.info(&output) {
+            None => warn!("Output disconnected, unknown information"),
+            Some(info) => {
+                info!(
+                    "Output disconnected ({})",
+                    info.description.unwrap_or_else(|| "<unknown>".into()),
+                );
+            }
+        }
         if let Some(suface_idx) = self
             .layer_surfaces
             .iter()
@@ -215,10 +224,19 @@ impl LayerShellHandler for App {
                 let x = (index % width as usize) as u32;
                 let y = (index / width as usize) as u32;
 
+                let xf = x as f32 / width as f32;
+                let yf = y as f32 / height as f32;
+
+                let srgb = oklab::oklab_to_srgb(oklab::Oklab {
+                    l: 0.7,
+                    a: xf * 0.8 - 0.4,
+                    b: yf * 0.8 - 0.4,
+                });
+
                 let a = 0xFF;
-                let r = u32::min(((width - x) * 0xFF) / width, ((height - y) * 0xFF) / height);
-                let g = u32::min((x * 0xFF) / width, ((height - y) * 0xFF) / height);
-                let b = u32::min(((width - x) * 0xFF) / width, (y * 0xFF) / height);
+                let r = srgb.r as u32;
+                let g = srgb.g as u32;
+                let b = srgb.b as u32;
                 let color = (a << 24) + (r << 16) + (g << 8) + b;
 
                 let array: &mut [u8; 4] = chunk.try_into().unwrap();
