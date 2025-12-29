@@ -232,8 +232,15 @@ impl LayerShellHandler for App {
         &mut self,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
-        _layer: &smithay_client_toolkit::shell::wlr_layer::LayerSurface,
+        layer: &smithay_client_toolkit::shell::wlr_layer::LayerSurface,
     ) {
+        if let Some(surface_idx) = self
+            .layer_surfaces
+            .iter()
+            .position(|surface| surface.layer_surface == *layer)
+        {
+            self.layer_surfaces.swap_remove(surface_idx);
+        }
     }
 
     fn configure(
@@ -370,51 +377,50 @@ impl PointerHandler for App {
         events: &[smithay_client_toolkit::seat::pointer::PointerEvent],
     ) {
         for event in events {
-            match event.kind {
-                PointerEventKind::Release {
-                    button: BTN_LEFT, ..
-                } => {
-                    let Some(surface) = self
-                        .layer_surfaces
-                        .iter()
-                        .find(|surface| *surface.layer_surface.wl_surface() == event.surface)
-                    else {
+            if let PointerEventKind::Release {
+                button: BTN_LEFT, ..
+            } = event.kind
+            {
+                let Some(surface) = self
+                    .layer_surfaces
+                    .iter()
+                    .find(|surface| *surface.layer_surface.wl_surface() == event.surface)
+                else {
+                    return;
+                };
+
+                let srgb = color_for_pixel(
+                    event.position.0 as u32,
+                    event.position.1 as u32,
+                    surface.width,
+                    surface.height,
+                );
+
+                let oklab: Oklab = srgb.into_format::<f32>().into_color();
+
+                let best_match = self
+                    .desktop_files
+                    .iter()
+                    .min_by_key(|(_, icon_color)| (oklab.distance(*icon_color) * 1000000.0) as u32);
+
+                if let Some(best_match) = best_match
+                    && let EntryType::Application(app) = &best_match.0.entry.entry_type
+                    && let Some(exec) = &app.exec
+                {
+                    // lol terrible implementation that works well enough
+                    // https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html
+                    let exec = exec.replace("%U", "").replace("%F", "");
+                    if exec.contains("%") {
+                        warn!(
+                            "Trying to execute insuffiently substituded command-line, refusing: {}",
+                            exec
+                        );
                         return;
-                    };
-
-                    let srgb = color_for_pixel(
-                        event.position.0 as u32,
-                        event.position.1 as u32,
-                        surface.width,
-                        surface.height,
-                    );
-
-                    let oklab: Oklab = srgb.into_format::<f32>().into_color();
-
-                    let best_match = self.desktop_files.iter().min_by_key(|(_, icon_color)| {
-                        (oklab.distance(*icon_color) * 1000000.0) as u32
-                    });
-
-                    if let Some(best_match) = best_match
-                        && let EntryType::Application(app) = &best_match.0.entry.entry_type
-                        && let Some(exec) = &app.exec
-                    {
-                        // lol terrible implementation that works well enough
-                        // https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html
-                        let exec = exec.replace("%U", "").replace("%F", "");
-                        if exec.contains("%") {
-                            warn!(
-                                "Trying to execute insuffiently substituded command-line, refusing: {}",
-                                exec
-                            );
-                            return;
-                        }
-                        if let Err(err) = spawn(&exec) {
-                            error!("Failed to spawn program: {}: {:?}", exec, err);
-                        }
+                    }
+                    if let Err(err) = spawn(&exec) {
+                        error!("Failed to spawn program: {}: {:?}", exec, err);
                     }
                 }
-                _ => {}
             }
         }
     }

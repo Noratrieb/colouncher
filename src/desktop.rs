@@ -1,12 +1,7 @@
 use eyre::{Context, Result};
 use freedesktop_file_parser::{DesktopFile, EntryType};
 use palette::{IntoColor, Oklab, Oklaba};
-use std::{
-    collections::HashMap,
-    ffi::OsStr,
-    fs::DirEntry,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, ffi::OsStr, fs::DirEntry, path::Path};
 
 fn walkdir(path: &Path, f: &mut impl FnMut(&DirEntry) -> Result<()>) -> Result<()> {
     for entry in path.read_dir()? {
@@ -22,7 +17,7 @@ fn walkdir(path: &Path, f: &mut impl FnMut(&DirEntry) -> Result<()>) -> Result<(
 pub(crate) fn find_desktop_files() -> Result<Vec<(DesktopFile, Oklab)>> {
     // https://specifications.freedesktop.org/desktop-entry/latest/file-naming.html
     let paths = std::env::var("XDG_DATA_DIRS").unwrap_or("/usr/local/share/:/usr/share/".into());
-    let paths = std::env::split_paths(&paths).map(PathBuf::from);
+    let paths = std::env::split_paths(&paths);
     let mut results = HashMap::new();
 
     for data_dir in paths {
@@ -47,21 +42,20 @@ pub(crate) fn find_desktop_files() -> Result<Vec<(DesktopFile, Oklab)>> {
             let file =
                 freedesktop_file_parser::parse(&contents).wrap_err("parsing .desktop file")?;
 
-            if !results.contains_key(&id) {
-                if file.entry.no_display != Some(true)
-                    && file.entry.hidden != Some(true)
-                    && let EntryType::Application(_) = file.entry.entry_type
-                    && let Some(icon) = &file.entry.icon
-                    && let Some(icon) = icon.get_icon_path()
-                    && icon.extension() != Some(OsStr::new("svg"))
-                { dbg!(path);
-                    let icon: image::DynamicImage = image::ImageReader::open(&icon)
-                        .wrap_err_with(|| format!("{}", icon.display()))?
-                        .decode()
-                        .wrap_err_with(|| format!("decoding {}", icon.display()))?;
-                    let color = average_color(&icon);
-                    results.insert(id, (file, color));
-                }
+            if !results.contains_key(&id)
+                && file.entry.no_display != Some(true)
+                && file.entry.hidden != Some(true)
+                && let EntryType::Application(_) = file.entry.entry_type
+                && let Some(icon) = &file.entry.icon
+                && let Some(icon) = icon.get_icon_path()
+                && icon.extension() != Some(OsStr::new("svg"))
+            {
+                let icon: image::DynamicImage = image::ImageReader::open(&icon)
+                    .wrap_err_with(|| format!("{}", icon.display()))?
+                    .decode()
+                    .wrap_err_with(|| format!("decoding {}", icon.display()))?;
+                let color = average_color(&icon);
+                results.insert(id, (file, color));
             }
 
             Ok(())

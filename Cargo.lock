@@ -302,6 +302,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
+name = "colouncher"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "eyre",
+ "freedesktop-file-parser",
+ "freedesktop-icons",
+ "image",
+ "log",
+ "palette",
+ "smithay-client-toolkit",
+ "wayland-client",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1512,21 +1527,6 @@ dependencies = [
  "aligned-vec",
  "num-traits",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "wallpapersc"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "eyre",
- "freedesktop-file-parser",
- "freedesktop-icons",
- "image",
- "log",
- "palette",
- "smithay-client-toolkit",
- "wayland-client",
 ]
 
 [[package]]

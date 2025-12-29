@@ -1,5 +1,5 @@
 { pkgs ? import <nixpkgs> { } }: pkgs.rustPlatform.buildRustPackage {
-  pname = "wallpapersc";
+  pname = "colouncher";
   version = "0.1.0";
 
   src = pkgs.lib.cleanSource ./.;
@@ -10,4 +10,8 @@
     wayland
     libxkbcommon
   ];
+
+  meta = {
+    mainProgram = "colouncher";
+  };
 }
