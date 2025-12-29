@@ -72,6 +72,8 @@ fn main() -> Result<()> {
         .insert(event_loop.handle())
         .wrap_err("failed to register wayland event source")?;
 
+    let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]);
+
     loop {
         event_loop
             .dispatch(Duration::from_millis(16), &mut app)
