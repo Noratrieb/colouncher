@@ -6,9 +6,9 @@ use std::{
 };
 
 use eyre::{Context, Result, bail};
-use freedesktop_file_parser::{DesktopFile, EntryType};
+use freedesktop_file_parser::EntryType;
 use log::{error, info, warn};
-use palette::{FromColor, IntoColor, Oklab, color_difference::EuclideanDistance};
+use palette::{FromColor, IntoColor, Oklab};
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     output::{OutputHandler, OutputState},
@@ -33,6 +33,8 @@ use wayland_client::{
     protocol::{wl_buffer, wl_output::WlOutput, wl_pointer::WlPointer, wl_seat::WlSeat, wl_shm},
 };
 
+use crate::desktop::DesktopEntries;
+
 fn main() -> Result<()> {
     env_logger::builder()
         .filter(None, log::LevelFilter::Info)
@@ -42,7 +44,7 @@ fn main() -> Result<()> {
     let desktop_files = desktop::find_desktop_files().wrap_err("loading .desktop files")?;
     info!(
         "Loaded {} desktop icons in {:?}",
-        desktop_files.len(),
+        desktop_files.count(),
         now.elapsed()
     );
 
@@ -89,7 +91,7 @@ struct App {
     shm: Shm,
     seat_state: SeatState,
 
-    desktop_files: Vec<(DesktopFile, Oklab)>,
+    desktop_files: DesktopEntries,
     pointers: HashMap<WlSeat, WlPointer>,
     layer_surfaces: Vec<OutputSurface>,
 }
@@ -400,13 +402,10 @@ impl PointerHandler for App {
 
                 let oklab: Oklab = srgb.into_format::<f32>().into_color();
 
-                let best_match = self
-                    .desktop_files
-                    .iter()
-                    .min_by_key(|(_, icon_color)| (oklab.distance(*icon_color) * 1000000.0) as u32);
+                let best_match = self.desktop_files.find_entry(oklab);
 
                 if let Some(best_match) = best_match
-                    && let EntryType::Application(app) = &best_match.0.entry.entry_type
+                    && let EntryType::Application(app) = &best_match.file.entry.entry_type
                     && let Some(exec) = &app.exec
                 {
                     // lol terrible implementation that works well enough
